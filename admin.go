@@ -18,9 +18,15 @@ func (conf *apiConfig) middlewareMetricsCount(next http.Handler) http.Handler {
 }
 
 func (conf *apiConfig) getMetricsCount(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
-	w.Write(fmt.Appendf([]byte{}, "Hits: %v", conf.fileServerHits.Load()))
+	w.Write(fmt.Appendf([]byte{},
+		`<html>
+			<body>
+				<h1>Welcome, Chirpy Admin</h1>
+				<p>Chirpy has been visited %d times!</p>
+			</body>
+		</html>`, conf.fileServerHits.Load()))
 }
 
 func (conf *apiConfig) resetMetricsCount(w http.ResponseWriter, _ *http.Request) {
