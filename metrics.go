@@ -3,15 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"sync/atomic"
-
-	"github.com/vmarin93/chirpy/internal/database"
 )
-
-type apiConfig struct {
-	fileServerHits atomic.Int32
-	db             *database.Queries
-}
 
 func (conf *apiConfig) middlewareMetricsCount(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -20,7 +12,7 @@ func (conf *apiConfig) middlewareMetricsCount(next http.Handler) http.Handler {
 	})
 }
 
-func (conf *apiConfig) getMetricsCount(w http.ResponseWriter, _ *http.Request) {
+func (conf *apiConfig) handlerMetrics(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
 	w.Write(fmt.Appendf([]byte{},
@@ -30,11 +22,4 @@ func (conf *apiConfig) getMetricsCount(w http.ResponseWriter, _ *http.Request) {
 				<p>Chirpy has been visited %d times!</p>
 			</body>
 		</html>`, conf.fileServerHits.Load()))
-}
-
-func (conf *apiConfig) resetMetricsCount(w http.ResponseWriter, _ *http.Request) {
-	conf.fileServerHits.Store(0)
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Hits reset to 0"))
 }
