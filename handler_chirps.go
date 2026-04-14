@@ -68,6 +68,25 @@ func (conf *apiConfig) handlerChirpsList(w http.ResponseWriter, r *http.Request)
 	respondWithJson(w, http.StatusOK, responseChirps)
 }
 
+func (conf *apiConfig) handlerChirpsListOne(w http.ResponseWriter, r *http.Request) {
+	chirpID, err := uuid.Parse(r.PathValue("chirpID"))
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Unable to parse URL param", err)
+	}
+	chirp, err := conf.db.GetChirp(r.Context(), chirpID)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "Chirp not found in the DB", err)
+		return
+	}
+	respondWithJson(w, http.StatusOK, Chirp{
+		ID:        chirp.ID,
+		CreatedAt: chirp.CreatedAt,
+		UpdatedAt: chirp.UpdatedAt,
+		Body:      chirp.Body,
+		UserID:    chirp.UserID,
+	})
+}
+
 func validateChirp(body string) (string, error) {
 	const maxChirpLen = 140
 	if len(body) > maxChirpLen {
