@@ -19,7 +19,7 @@ type Chirp struct {
 	UserID    uuid.UUID `json:"user_id"`
 }
 
-func (conf *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
+func (conf *apiConfig) handlerChirpsCreate(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Body   string    `json:"body"`
 		UserID uuid.UUID `json:"user_id"`
@@ -48,6 +48,24 @@ func (conf *apiConfig) handlerChirps(w http.ResponseWriter, r *http.Request) {
 		Body:      chirp.Body,
 		UserID:    chirp.UserID,
 	})
+}
+
+func (conf *apiConfig) handlerChirpsList(w http.ResponseWriter, r *http.Request) {
+	chirps, err := conf.db.GetAllChirps(r.Context())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Unable to retrieve chirps from DB", err)
+	}
+	responseChirps := []Chirp{}
+	for _, chirp := range chirps {
+		responseChirps = append(responseChirps, Chirp{
+			ID:        chirp.ID,
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+			Body:      chirp.Body,
+			UserID:    chirp.UserID,
+		})
+	}
+	respondWithJson(w, http.StatusOK, responseChirps)
 }
 
 func validateChirp(body string) (string, error) {
