@@ -2,6 +2,9 @@ package auth
 
 import (
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 func TestPasswordHashing(t *testing.T) {
@@ -29,6 +32,34 @@ func TestPasswordHashing(t *testing.T) {
 			}
 			if !tc.wantErr && match != tc.want {
 				t.Errorf("CheckPasswordHash() expects %v, got %v", tc.want, match)
+			}
+		})
+	}
+}
+
+func TestValidateJWT(t *testing.T) {
+	userID := uuid.New()
+	validToken, _ := MakeJWT(userID, "secret", time.Hour)
+	expiredToken, _ := MakeJWT(userID, "secret", time.Nanosecond)
+	tests := map[string]struct {
+		tokenString string
+		tokenSecret string
+		wantErr     bool
+		want        uuid.UUID
+	}{
+		"valid jwt":     {tokenString: validToken, tokenSecret: "secret", wantErr: false, want: userID},
+		"invalid jwt":   {tokenString: "invalid", tokenSecret: "secret", wantErr: true, want: uuid.Nil},
+		"wrong secret":  {tokenString: validToken, tokenSecret: "badSecret", wantErr: true, want: uuid.Nil},
+		"expired token": {tokenString: expiredToken, tokenSecret: "secret", wantErr: true, want: uuid.Nil},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			got, err := ValidateJWT(tc.tokenString, tc.tokenSecret)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("ValidateJWT() error = %v, wantErr %v", err, tc.wantErr)
+			}
+			if !tc.wantErr && got != tc.want {
+				t.Errorf("ValidateJWT() expects = %v, got %v", tc.want, got)
 			}
 		})
 	}
