@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/vmarin93/chirpy/internal/auth"
 	"github.com/vmarin93/chirpy/internal/database"
 )
 
@@ -29,6 +30,14 @@ func (conf *apiConfig) handlerChirpsCreate(w http.ResponseWriter, r *http.Reques
 	if err := decoder.Decode(&params); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Unable to decode params", err)
 	}
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Unauthenticated users can't post chirps", err)
+	}
+	userID, err := auth.ValidateJWT(token, conf.secretKey)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Unauthenticated users can't post chirps", err)
+	}
 	validBody, err := validateChirp(params.Body)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, err.Error(), err)
@@ -36,7 +45,7 @@ func (conf *apiConfig) handlerChirpsCreate(w http.ResponseWriter, r *http.Reques
 	}
 	chirp, err := conf.db.CreateChirp(r.Context(), database.CreateChirpParams{
 		Body:   validBody,
-		UserID: params.UserID,
+		UserID: userID,
 	})
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Unable to add chirp to DB", err)
