@@ -6,17 +6,18 @@ import (
 	"time"
 
 	"github.com/vmarin93/chirpy/internal/auth"
+	"github.com/vmarin93/chirpy/internal/database"
 )
 
 func (conf *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Email            string        `json:"email"`
-		Password         string        `json:"password"`
-		ExpiresInSeconds time.Duration `json:"expires_in_seconds"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 	type responseBody struct {
-		User  User
-		Token string `json:"token"`
+		User
+		AccessToken  string `json:"token"`
+		RefreshToken string `json:"refresh_token"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
@@ -34,13 +35,18 @@ func (conf *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password", err)
 		return
 	}
-	expirationTime := time.Hour
-	if params.ExpiresInSeconds > 0 && params.ExpiresInSeconds < 3600 {
-		expirationTime = time.Duration(params.ExpiresInSeconds) * time.Second
-	}
-	token, err := auth.MakeJWT(user.ID, conf.secretKey, expirationTime)
+	accessToken, err := auth.MakeJWT(user.ID, conf.secretKey, time.Hour)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Unable to create JWT token", err)
+		return
+	}
+	refreshToken, err := conf.db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+		Token:     auth.MakeRefreshToken(),
+		UserID:    user.ID,
+		ExpiresAt: time.Now().Add(60 * 24 * time.Hour),
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Unable to add refresh token to DB", err)
 		return
 	}
 	respondWithJson(w, http.StatusOK, responseBody{
@@ -50,6 +56,7 @@ func (conf *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt: user.UpdatedAt,
 			Email:     user.Email,
 		},
-		Token: token,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken.Token,
 	})
 }

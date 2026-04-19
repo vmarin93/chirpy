@@ -29,14 +29,17 @@ func (conf *apiConfig) handlerChirpsCreate(w http.ResponseWriter, r *http.Reques
 	params := parameters{}
 	if err := decoder.Decode(&params); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Unable to decode params", err)
+		return
 	}
 	token, err := auth.GetBearerToken(r.Header)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Unauthenticated users can't post chirps", err)
+		return
 	}
 	userID, err := auth.ValidateJWT(token, conf.secretKey)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Unauthenticated users can't post chirps", err)
+		return
 	}
 	validBody, err := validateChirp(params.Body)
 	if err != nil {
@@ -49,6 +52,7 @@ func (conf *apiConfig) handlerChirpsCreate(w http.ResponseWriter, r *http.Reques
 	})
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Unable to add chirp to DB", err)
+		return
 	}
 	respondWithJson(w, http.StatusCreated, Chirp{
 		ID:        chirp.ID,
@@ -63,6 +67,7 @@ func (conf *apiConfig) handlerChirpsList(w http.ResponseWriter, r *http.Request)
 	chirps, err := conf.db.GetAllChirps(r.Context())
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Unable to retrieve chirps from DB", err)
+		return
 	}
 	responseChirps := []Chirp{}
 	for _, chirp := range chirps {
@@ -81,6 +86,7 @@ func (conf *apiConfig) handlerChirpsListOne(w http.ResponseWriter, r *http.Reque
 	chirpID, err := uuid.Parse(r.PathValue("chirpID"))
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Unable to parse URL param", err)
+		return
 	}
 	chirp, err := conf.db.GetChirp(r.Context(), chirpID)
 	if err != nil {
