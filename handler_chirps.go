@@ -64,7 +64,17 @@ func (conf *apiConfig) handlerChirpsCreate(w http.ResponseWriter, r *http.Reques
 }
 
 func (conf *apiConfig) handlerChirpsList(w http.ResponseWriter, r *http.Request) {
-	chirps, err := conf.db.GetAllChirps(r.Context())
+	var chirps []database.Chirp
+	authorID, err := authorIDFromRequest(r)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid author ID", err)
+		return
+	}
+	if authorID != uuid.Nil {
+		chirps, err = conf.db.GetChirpsByAuthorID(r.Context(), authorID)
+	} else {
+		chirps, err = conf.db.GetAllChirps(r.Context())
+	}
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Unable to retrieve chirps from DB", err)
 		return
@@ -157,4 +167,16 @@ func sanitize(s string) string {
 		}
 	}
 	return strings.Join(words, " ")
+}
+
+func authorIDFromRequest(r *http.Request) (uuid.UUID, error) {
+	authorIDString := r.URL.Query().Get("author_id")
+	if authorIDString == "" {
+		return uuid.Nil, nil
+	}
+	authorID, err := uuid.Parse(authorIDString)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return authorID, nil
 }
