@@ -92,3 +92,15 @@ func MakeRefreshToken() string {
 	rand.Read(key)
 	return hex.EncodeToString(key)
 }
+
+func GetPolkaAPIKey(headers http.Header) (string, error) {
+	authHeader := headers.Get("Authorization")
+	if authHeader == "" {
+		return "", errors.New("No Authorization header included in request")
+	}
+	splitAuthHeader := strings.Split(authHeader, " ")
+	if len(splitAuthHeader) < 2 || splitAuthHeader[0] != "ApiKey" {
+		return "", errors.New("Malformed Authorization header")
+	}
+	return splitAuthHeader[1], nil
+}
