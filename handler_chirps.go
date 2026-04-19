@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -70,6 +71,11 @@ func (conf *apiConfig) handlerChirpsList(w http.ResponseWriter, r *http.Request)
 		respondWithError(w, http.StatusBadRequest, "Invalid author ID", err)
 		return
 	}
+	sortDirection, err := sortDirectionFromRequest(r)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid sort direction", err)
+		return
+	}
 	if authorID != uuid.Nil {
 		chirps, err = conf.db.GetChirpsByAuthorID(r.Context(), authorID)
 	} else {
@@ -87,6 +93,11 @@ func (conf *apiConfig) handlerChirpsList(w http.ResponseWriter, r *http.Request)
 			UpdatedAt: chirp.UpdatedAt,
 			Body:      chirp.Body,
 			UserID:    chirp.UserID,
+		})
+	}
+	if sortDirection == "desc" {
+		slices.SortFunc(responseChirps, func(a, b Chirp) int {
+			return b.CreatedAt.Compare(a.CreatedAt)
 		})
 	}
 	respondWithJson(w, http.StatusOK, responseChirps)
@@ -179,4 +190,15 @@ func authorIDFromRequest(r *http.Request) (uuid.UUID, error) {
 		return uuid.Nil, err
 	}
 	return authorID, nil
+}
+
+func sortDirectionFromRequest(r *http.Request) (string, error) {
+	sortDirection := r.URL.Query().Get("sort")
+	if sortDirection == "" {
+		return "", nil
+	}
+	if sortDirection != "asc" && sortDirection != "desc" {
+		return "", errors.New("Bad sorting parameter")
+	}
+	return sortDirection, nil
 }
