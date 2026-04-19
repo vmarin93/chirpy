@@ -53,3 +53,51 @@ func (conf *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request
 		},
 	})
 }
+
+func (conf *apiConfig) handlerUsersUpdate(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	type responseBody struct {
+		User
+	}
+	accessToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "No JWT token in the header", err)
+		return
+	}
+	userID, err := auth.ValidateJWT(accessToken, conf.secretKey)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid token", err)
+		return
+	}
+	decoder := json.NewDecoder(r.Body)
+	params := parameters{}
+	if err := decoder.Decode(&params); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Unable to decode request body", err)
+		return
+	}
+	hashedPassword, err := auth.HashPassword(params.Password)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Unable to hash password", err)
+		return
+	}
+	user, err := conf.db.UpdateUser(r.Context(), database.UpdateUserParams{
+		Email:          params.Email,
+		HashedPassword: hashedPassword,
+		ID:             userID,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Unable to update user", err)
+		return
+	}
+	respondWithJson(w, http.StatusOK, responseBody{
+		User: User{
+			ID:        user.ID,
+			Email:     user.Email,
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
+		},
+	})
+}
