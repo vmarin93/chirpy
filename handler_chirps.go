@@ -102,6 +102,39 @@ func (conf *apiConfig) handlerChirpsListOne(w http.ResponseWriter, r *http.Reque
 	})
 }
 
+func (conf *apiConfig) handlerChirpsDeleteOne(w http.ResponseWriter, r *http.Request) {
+	accessToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "JWT token not found in header", err)
+		return
+	}
+	userID, err := auth.ValidateJWT(accessToken, conf.secretKey)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid token", err)
+		return
+	}
+	chirpID, err := uuid.Parse(r.PathValue("chirpID"))
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Unable to parse URL param", err)
+		return
+	}
+	chirp, err := conf.db.GetChirp(r.Context(), chirpID)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "Chirp not found in the DB", err)
+		return
+	}
+	if chirp.UserID != userID {
+		err = errors.New("You can only delete your own chirps")
+		respondWithError(w, http.StatusForbidden, "You can only delete your own chirps", err)
+		return
+	}
+	if err := conf.db.DeleteChirp(r.Context(), chirpID); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Unable to delete chirp from DB", err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func validateChirp(body string) (string, error) {
 	const maxChirpLen = 140
 	if len(body) > maxChirpLen {
